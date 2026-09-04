@@ -19,6 +19,7 @@ export default function TopPage() {
   useEffect(() => { load(period); }, [period]);
 
   const table = (rows: Mover[], up: boolean) => (
+    <div className="table-scroll">
     <table className="tbl">
       <thead><tr><th>Gift</th><th>Old</th><th>Now</th><th>Change</th><th></th></tr></thead>
       <tbody>
@@ -33,6 +34,7 @@ export default function TopPage() {
         ))}
       </tbody>
     </table>
+    </div>
   );
 
   return (

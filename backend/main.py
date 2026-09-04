@@ -24,7 +24,7 @@ _last_ga_hist_date = ""
 
 log = logging.getLogger("poller")
 POLL_SECONDS = 180  # 3 мин по ТЗ
-FRAGMENT_REFRESH_SECONDS = 3600  # полный обход Fragment раз в час
+FRAGMENT_REFRESH_SECONDS = 1800  # полный обход Fragment каждые 30 мин
 _last_fragment_ts = 0
 
 

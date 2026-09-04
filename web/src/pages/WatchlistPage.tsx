@@ -53,6 +53,7 @@ export default function WatchlistPage() {
       </section>
       {!watched.length && <p className="muted">Пусто. Жми ★ на карточке подарка. <Link to="/">← Gifts</Link></p>}
       {!!watched.length && (
+        <div className="table-scroll">
         <table className="tbl">
           <thead><tr><th>Gift</th><th>Watched at</th><th>Floor now</th><th>Change</th><th></th></tr></thead>
           <tbody>
@@ -77,6 +78,7 @@ export default function WatchlistPage() {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

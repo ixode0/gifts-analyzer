@@ -108,3 +108,40 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .section h2 { font-size: 19px; margin-bottom: 12px; }
 .muted { color: var(--muted); }
 .compare-bar { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1c1c21; border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; }
+.table-scroll table.tbl { min-width: 560px; }
+.table-scroll table.tbl th, .table-scroll table.tbl td { white-space: nowrap; }
+
+/* ---------- mobile ---------- */
+@media (max-width: 700px) {
+  .container { padding: 0 12px 70px; }
+  .header-inner { padding: 10px 12px; gap: 10px; }
+  .logo-text { display: none; }
+  .nav { overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
+  .live span:last-child { display: none; }
+  .hero { padding: 22px 0 4px; }
+  .hero h1 { font-size: 24px; }
+  .hero p { font-size: 13px; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat { padding: 10px 12px; }
+  .stat .v { font-size: 17px; }
+  .toolbar { flex-direction: column; }
+  .search { min-width: 0; }
+  .pills { overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .pills::-webkit-scrollbar { display: none; }
+  .pill { white-space: nowrap; }
+  select.sort { width: 100%; }
+  .grid { grid-template-columns: 1fr; gap: 10px; }
+  .card { padding: 14px; }
+  .btn { padding: 11px 8px; font-size: 14px; }
+  .detail-head h1 { font-size: 24px; word-break: break-word; }
+  .price-line { gap: 8px; }
+  .price-box { flex: 1 1 45%; padding: 10px 12px; }
+  .price-box .v { font-size: 18px; }
+  .chart-wrap { height: 300px; padding: 8px; }
+  .compare-bar { max-width: 94vw; flex-wrap: wrap; justify-content: center; font-size: 13px; }
+  .thumb { width: 40px; height: 40px; }
+  .card-title { font-size: 15px; }
+}

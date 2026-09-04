@@ -18,6 +18,7 @@ export default function ArbitragePage() {
       </section>
       {!rows.length && <p className="muted">Нет прибыльных связок прямо сейчас (или ждем больше маркетов — Portals подтянется с Giftstat).</p>}
       {!!rows.length && (
+        <div className="table-scroll">
         <table className="tbl">
           <thead><tr><th>Gift</th><th>Buy</th><th>Sell</th><th>Net TON</th><th>Net %</th><th></th></tr></thead>
           <tbody>
@@ -33,6 +34,7 @@ export default function ArbitragePage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );
