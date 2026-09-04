@@ -281,21 +281,28 @@ async def debug_tonnel(gift: str = Query("Plush Pepe")):
     import time as _t
     import json as _json
     from curl_cffi.requests import AsyncSession
-    t0 = _t.time()
-    try:
-        async with AsyncSession(impersonate="chrome") as s:
-            r = await s.post(
-                "https://gifts2.tonnel.network/api/pageGifts",
-                json={"page": 1, "limit": 1, "sort": _json.dumps({"price": 1}),
-                      "filter": _json.dumps({"gift_name": gift, "asset": "TON"}),
-                      "price_range": None, "user_auth": ""},
-                headers={"Origin": "https://market.tonnel.network", "Referer": "https://market.tonnel.network/"},
-                timeout=25,
-            )
-            return {"gift": gift, "status": r.status_code, "len": len(r.text),
-                    "head": r.text[:150], "dt": round(_t.time() - t0, 1)}
-    except Exception as e:
-        return {"gift": gift, "error": f"{type(e).__name__}: {str(e)[:300]}", "dt": round(_t.time() - t0, 1)}
+    hosts = [
+        "https://gifts2.tonnel.network/api/pageGifts",
+        "https://rs-market.tonnel.network/api/pageGifts",
+    ]
+    out = []
+    for host in hosts:
+        t0 = _t.time()
+        try:
+            async with AsyncSession(impersonate="chrome") as s:
+                r = await s.post(
+                    host,
+                    json={"page": 1, "limit": 1, "sort": _json.dumps({"price": 1}),
+                          "filter": _json.dumps({"gift_name": gift, "asset": "TON"}),
+                          "price_range": None, "user_auth": ""},
+                    headers={"Origin": "https://market.tonnel.network", "Referer": "https://market.tonnel.network/"},
+                    timeout=15,
+                )
+                out.append({"host": host, "status": r.status_code, "len": len(r.text),
+                            "head": r.text[:120], "dt": round(_t.time() - t0, 1)})
+        except Exception as e:
+            out.append({"host": host, "error": f"{type(e).__name__}: {str(e)[:150]}", "dt": round(_t.time() - t0, 1)})
+    return {"gift": gift, "probes": out}
 
 
 @app.get("/api/history")
