@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, HistPoint } from '../api';
+import { api, HistPoint, MARKETS } from '../api';
+
+const GRADS: Record<string, string> = {
+  fragment_floor: '#60a5fa', portals_floor: '#8b5cf6', tonnel_floor: '#34d399',
+  mrkt_floor: '#fbbf24', getgems_floor: '#f472b6',
+};
 
 const PERIODS = [{ d: 1, label: '24H' }, { d: 7, label: '7D' }, { d: 30, label: '30D' }];
 
@@ -40,9 +45,11 @@ export default function GiftPage() {
       </div>
       {last && (
         <div className="price-line">
-          {(last as any).fragment_floor != null && <div className="price-box"><div className="k">Fragment floor</div><div className="v">{(last as any).fragment_floor} <span style={{ fontSize: 13 }}>TON</span></div></div>}
-          <div className="price-box"><div className="k">Portals floor</div><div className="v">{last.portals_floor ?? '—'} <span style={{ fontSize: 13 }}>TON</span></div></div>
-          <div className="price-box"><div className="k">Tonnel floor</div><div className="v">{last.tonnel_floor ?? '—'} <span style={{ fontSize: 13 }}>TON</span></div></div>
+          {MARKETS.map((m) => {
+            const v = (last as any)[m.key];
+            if (v == null) return null;
+            return <div className="price-box" key={m.key}><div className="k">{m.label}</div><div className="v">{v} <span style={{ fontSize: 13 }}>TON</span></div></div>;
+          })}
           <div className="price-box"><div className="k">Change ({days === 1 ? '24h' : `${days}d`})</div>
             <div className={Number(chg) >= 0 ? 'v up' : 'v down'}>{chg != null ? `${Number(chg) > 0 ? '+' : ''}${chg}%` : '—'}</div></div>
           {last.ton_rate ? <div className="price-box"><div className="k">TON rate</div><div className="v">${last.ton_rate}</div></div> : null}
@@ -58,26 +65,20 @@ export default function GiftPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chart}>
               <defs>
-                <linearGradient id="gp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#60a5fa" stopOpacity={0} />
-                </linearGradient>
+                {MARKETS.map((m) => (
+                  <linearGradient key={m.key} id={`g-${m.key}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={GRADS[m.key]} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={GRADS[m.key]} stopOpacity={0} />
+                  </linearGradient>
+                ))}
               </defs>
               <CartesianGrid stroke="rgba(255,255,255,0.06)" />
               <XAxis dataKey="time" tick={{ fill: '#71717a', fontSize: 11 }} minTickGap={50} />
               <YAxis tick={{ fill: '#71717a', fontSize: 11 }} domain={['auto', 'auto']} width={60} />
               <Tooltip contentStyle={{ background: '#141417', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }} />
-              <Area type="monotone" dataKey="fragment_floor" name="Fragment" stroke="#60a5fa" fill="url(#gf)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="portals_floor" name="Portals" stroke="#8b5cf6" fill="url(#gp)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="tonnel_floor" name="Tonnel" stroke="#34d399" fill="url(#gt)" strokeWidth={2} dot={false} />
+              {MARKETS.map((m) => (
+                <Area key={m.key} type="monotone" dataKey={m.key} name={m.label} stroke={GRADS[m.key]} fill={`url(#g-${m.key})`} strokeWidth={2} dot={false} connectNulls />
+              ))}
             </AreaChart>
           </ResponsiveContainer>
         ) : <p className="muted">История копится поллером каждые 3 мин. Загляни позже.</p>}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Gift, bestMarket, thumbUrl, isWatched, toggleWatch } from '../api';
+import { Gift, bestMarket, thumbUrl, isWatched, toggleWatch, MARKETS } from '../api';
 
 interface Props {
   gift: Gift;
@@ -37,11 +37,16 @@ export default function GiftCard({ gift, compared, compareFull, onCompare }: Pro
         </div>
       </div>
       <div className="rows">
-        {gift.fragment_floor != null && (
-          <div className="rowline"><span className="k">Fragment floor</span><span className="mono">{gift.fragment_floor} TON</span></div>
-        )}
-        <div className="rowline"><span className="k">Portals floor</span><span className="mono">{gift.portals_floor ?? '—'}{gift.portals_floor != null ? ' TON' : ''}</span></div>
-        <div className="rowline"><span className="k">Tonnel floor</span><span className="mono">{gift.tonnel_floor ?? '—'}{gift.tonnel_floor != null ? ' TON' : ''}</span></div>
+        {MARKETS.map((m) => {
+          const v = gift[m.key];
+          if (v == null) return null;
+          return (
+            <div className="rowline" key={m.key}>
+              <span className="k"><span style={{ color: m.color }}>●</span> {m.label}</span>
+              <span className="mono">{v} TON</span>
+            </div>
+          );
+        })}
         <div className="rowline">
           <span className="k">Spread</span>
           {spread != null ? (

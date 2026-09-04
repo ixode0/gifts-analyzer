@@ -8,7 +8,7 @@ type SortKey = 'price-desc' | 'price-asc' | 'spread-desc' | 'name';
 export default function Home({ compare, toggleCompare }: { compare: string[]; toggleCompare: (s: string) => void }) {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [q, setQ] = useState('');
-  const [market, setMarket] = useState<'all' | 'portals' | 'tonnel' | 'fragment'>('all');
+  const [market, setMarket] = useState<'all' | 'portals' | 'tonnel' | 'fragment' | 'mrkt' | 'getgems'>('all');
   const [sort, setSort] = useState<SortKey>('price-desc');
   const [updated, setUpdated] = useState('');
 
@@ -30,6 +30,8 @@ export default function Home({ compare, toggleCompare }: { compare: string[]; to
     market === 'tonnel' ? g.tonnel_floor
     : market === 'portals' ? g.portals_floor
     : market === 'fragment' ? g.fragment_floor
+    : market === 'mrkt' ? g.mrkt_floor
+    : market === 'getgems' ? g.getgems_floor
     : g.min_floor;
 
   const list = useMemo(() => {
@@ -52,11 +54,11 @@ export default function Home({ compare, toggleCompare }: { compare: string[]; to
     <>
       <section className="hero">
         <h1>Gifts</h1>
-        <p>Флор каждого подарка: Fragment + Portals и Tonnel (когда доступен Giftstat). Обновление каждые 3 мин.</p>
+        <p>Флор каждого подарка: Portals, Tonnel, Fragment, MRKT, GetGems. GiftAsset-срез каждые 6 ч + свежий Fragment каждый час.</p>
         <div className="stats">
           <div className="stat"><div className="k">Tracked gifts</div><div className="v">{gifts.length}</div></div>
           <div className="stat"><div className="k">Avg floor (TON)</div><div className="v">{avg ? avg.toFixed(1) : '—'}</div></div>
-          <div className="stat"><div className="k">Markets</div><div className="v">3</div></div>
+          <div className="stat"><div className="k">Markets</div><div className="v">5</div></div>
           <div className="stat"><div className="k">Updated</div><div className="v" style={{ fontSize: 17 }}>{updated || '—'}</div></div>
         </div>
       </section>
@@ -67,9 +69,9 @@ export default function Home({ compare, toggleCompare }: { compare: string[]; to
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search gifts..." />
         </div>
         <div className="pills">
-          {(['all', 'portals', 'tonnel', 'fragment'] as const).map((m) => (
+          {(['all', 'portals', 'tonnel', 'fragment', 'mrkt', 'getgems'] as const).map((m) => (
             <button key={m} className={market === m ? 'pill active' : 'pill'} onClick={() => setMarket(m)}>
-              {m === 'all' ? 'All' : m === 'portals' ? 'Portals' : m === 'tonnel' ? 'Tonnel' : 'Fragment'}
+              {m === 'all' ? 'All' : m === 'portals' ? 'Portals' : m === 'tonnel' ? 'Tonnel' : m === 'fragment' ? 'Fragment' : m === 'mrkt' ? 'MRKT' : 'GetGems'}
             </button>
           ))}
         </div>
