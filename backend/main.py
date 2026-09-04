@@ -128,14 +128,14 @@ def do_fragment_poll(force: bool = False):
         rows = [{
             "slug": s, "name": names[s],
             "portals_floor": None, "tonnel_floor": tfloors.get(mapping.get(s)),
-            "fragment_floor": data[s]["floor"],
+            "fragment_floor": data[s]["floor"], "thumb_remote": img_map.get(s, ""),
         } for s in names]
         # merge with latest snapshot so transient fetch misses don't wipe prices
         prev = {r["slug"]: r for r in db.latest_snapshot()}
         for r in rows:
             p = prev.get(r["slug"], {})
-            for k in ("portals_floor", "tonnel_floor", "fragment_floor"):
-                if r.get(k) is None and p.get(k):
+            for k in ("portals_floor", "tonnel_floor", "fragment_floor", "thumb_remote"):
+                if not r.get(k) and p.get(k):
                     r[k] = p[k]
         ts = db.save_snapshot(rows, _ton_rate())
         _last_fragment_ts = time.time()
@@ -165,8 +165,8 @@ def do_poll():
             prev = {r["slug"]: r for r in db.latest_snapshot()}
             for r in rows:
                 p = prev.get(r["slug"], {})
-                for k in ("portals_floor", "tonnel_floor", "fragment_floor"):
-                    if r.get(k) is None and p.get(k):
+                for k in ("portals_floor", "tonnel_floor", "fragment_floor", "thumb_remote"):
+                    if not r.get(k) and p.get(k):
                         r[k] = p[k]
             ts = db.save_snapshot(rows, ton_rate)
             log.warning(f"poll ok: {len(rows)} collections ts={ts}")
@@ -222,7 +222,7 @@ def collections():
             "fragment_floor": ff,
             "min_floor": min(floors) if floors else None,
             "spread_pct": spread,
-            "thumb": thumbs.thumb_url(r["slug"], img_map.get(r["slug"])),
+            "thumb": thumbs.thumb_url(r["slug"], (r["thumb_remote"] or None) if "thumb_remote" in r.keys() else None),
             "ton_rate": r["ton_rate"],
             "ts": r["ts"],
         })
@@ -235,7 +235,14 @@ def collections():
 @app.get("/api/deals")
 def deals(limit: int = Query(100, ge=1, le=200)):
     """Undervalued Tonnel listings: gap vs 2nd cheapest of same model + below fragment floor."""
-    return {"data": db.latest_deals(limit)}
+    rows = db.latest_deals(limit)
+    thumbs_by_slug = {}
+    for r in db.latest_snapshot():
+        keys = r.keys()
+        thumbs_by_slug[r["slug"]] = thumbs.thumb_url(r["slug"], (r["thumb_remote"] or None) if "thumb_remote" in keys else None)
+    for d in rows:
+        d["thumb"] = thumbs_by_slug.get(d["slug"], "")
+    return {"data": rows}
 
 
 @app.get("/api/arbitrage")

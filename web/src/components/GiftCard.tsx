@@ -21,7 +21,7 @@ export default function GiftCard({ gift, compared, compareFull, onCompare }: Pro
     <div className="card">
       <div className="card-top">
         <div className="card-id">
-          <img className="thumb" src={thumbUrl(gift.thumb)} alt="" loading="lazy" decoding="async" width={46} height={46} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          {!!gift.thumb && <img className="thumb" src={thumbUrl(gift.thumb)} alt="" loading="lazy" decoding="async" width={46} height={46} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
           <div>
             <h3 className="card-title">{gift.name}</h3>
             <div className="card-slug">{gift.slug}</div>

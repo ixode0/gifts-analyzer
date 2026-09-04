@@ -21,7 +21,7 @@ export default function DealsPage() {
           <div className="card" key={`${d.name}-${d.gift_num}-${i}`}>
             <div className="card-top">
               <div className="card-id">
-                {d.slug && <img className="thumb" src={thumbUrl(`/static/img/${d.slug}.jpg`)} alt="" loading="lazy" decoding="async" width={46} height={46} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                {!!d.thumb && <img className="thumb" src={thumbUrl(d.thumb)} alt="" loading="lazy" decoding="async" width={46} height={46} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
                 <div>
                   <h3 className="card-title">{d.name} #{d.gift_num ?? '—'}</h3>
                   <div className="card-slug">{d.model}{d.model_rarity != null ? ` (${d.model_rarity}%)` : ''}</div>

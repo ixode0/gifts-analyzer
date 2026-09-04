@@ -44,4 +44,4 @@ async def ensure_thumbs(img_map: dict, concurrency: int = 6) -> dict:
 def thumb_url(slug: str, fallback_remote: str | None = None) -> str:
     if local_path(slug).exists():
         return f"/static/img/{slug}.jpg"
-    return fallback_remote or f"https://fragment.com/gifts/{slug}/thumb.webp"
+    return fallback_remote or ""

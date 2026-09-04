@@ -50,6 +50,7 @@ export interface Deal {
   discount_pct: number;
   kind: 'gap' | 'xfloor';
   market: string;
+  thumb: string;
   ts: number;
 }
 
