@@ -9,7 +9,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-    disk:
-      name: gifts-data
-      mountPath: /opt/render/project/src/backend
-      sizeGB: 1
