@@ -386,6 +386,19 @@ def arbitrage(min_net_pct: float = Query(2.0)):
     return {"fees": FEES, "data": out[:100]}
 
 
+@app.get("/api/debug-portals")
+async def debug_portals():
+    import time as _t
+    import httpx as _hx
+    t0 = _t.time()
+    try:
+        async with _hx.AsyncClient(timeout=20) as c:
+            r = await c.get("https://portal-market.com/api/market/config")
+            return {"status": r.status_code, "len": len(r.text), "head": r.text[:120], "dt": round(_t.time() - t0, 1)}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {str(e)[:200]}", "dt": round(_t.time() - t0, 1)}
+
+
 @app.get("/api/debug-tonnel")
 async def debug_tonnel(gift: str = Query("Plush Pepe")):
     import time as _t
