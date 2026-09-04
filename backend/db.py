@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS prices (
     portals_floor REAL,
     tonnel_floor REAL,
     fragment_floor REAL,
+    mrkt_floor REAL,
+    getgems_floor REAL,
     thumb_remote TEXT DEFAULT '',
     ton_rate REAL DEFAULT 0,
     ts INTEGER NOT NULL
@@ -26,6 +28,8 @@ CREATE INDEX IF NOT EXISTS idx_prices_ts ON prices(ts);
 MIGRATIONS = [
     "ALTER TABLE prices ADD COLUMN fragment_floor REAL",
     "ALTER TABLE prices ADD COLUMN thumb_remote TEXT",
+    "ALTER TABLE prices ADD COLUMN mrkt_floor REAL",
+    "ALTER TABLE prices ADD COLUMN getgems_floor REAL",
     """CREATE TABLE IF NOT EXISTS deals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         slug TEXT NOT NULL,
@@ -69,8 +73,8 @@ def save_snapshot(rows: list[dict], ton_rate: float):
     conn = get_conn()
     for r in rows:
         conn.execute(
-            "INSERT INTO prices (slug, name, portals_floor, tonnel_floor, fragment_floor, thumb_remote, ton_rate, ts) VALUES (?,?,?,?,?,?,?,?)",
-            (r.get("slug"), r.get("name", ""), r.get("portals_floor"), r.get("tonnel_floor"), r.get("fragment_floor"), r.get("thumb_remote", ""), ton_rate, ts),
+            "INSERT INTO prices (slug, name, portals_floor, tonnel_floor, fragment_floor, mrkt_floor, getgems_floor, thumb_remote, ton_rate, ts) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (r.get("slug"), r.get("name", ""), r.get("portals_floor"), r.get("tonnel_floor"), r.get("fragment_floor"), r.get("mrkt_floor"), r.get("getgems_floor"), r.get("thumb_remote", ""), ton_rate, ts),
         )
     conn.commit()
     conn.close()
@@ -93,11 +97,29 @@ def history(slug: str, days: int = 7, limit: int = 5000):
     since = int(time.time()) - days * 86400
     conn = get_conn()
     rows = conn.execute(
-        "SELECT slug, name, portals_floor, tonnel_floor, fragment_floor, thumb_remote, ton_rate, ts FROM prices WHERE slug = ? AND ts >= ? ORDER BY ts ASC LIMIT ?",
+        "SELECT slug, name, portals_floor, tonnel_floor, fragment_floor, mrkt_floor, getgems_floor, thumb_remote, ton_rate, ts FROM prices WHERE slug = ? AND ts >= ? ORDER BY ts ASC LIMIT ?",
         (slug, since, limit),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def insert_backfill(slug: str, name: str, points: list):
+    """points: [{ts, portals_floor, tonnel_floor, mrkt_floor, getgems_floor}]. Skip ts already present."""
+    conn = get_conn()
+    have = {r["ts"] for r in conn.execute("SELECT ts FROM prices WHERE slug = ?", (slug,)).fetchall()}
+    n = 0
+    for p in points:
+        if p["ts"] in have:
+            continue
+        conn.execute(
+            "INSERT INTO prices (slug, name, portals_floor, tonnel_floor, fragment_floor, mrkt_floor, getgems_floor, thumb_remote, ton_rate, ts) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (slug, name, p.get("portals_floor"), p.get("tonnel_floor"), None, p.get("mrkt_floor"), p.get("getgems_floor"), "", 0, p["ts"]),
+        )
+        n += 1
+    conn.commit()
+    conn.close()
+    return n
 
 
 def distinct_slugs():

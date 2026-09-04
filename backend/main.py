@@ -6,16 +6,21 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 import json
 import logging
+import os
 import time
 from pathlib import Path
 
 import db
 import giftstat
 import fragment as frag
+import giftasset as ga
 import tonnel as ton
 import thumbs
 
 IMG_MAP_FILE = Path(__file__).parent / "img_map.json"
+GA_REFRESH_SECONDS = 21600  # 6 часов: 4 среза/сутки из 10 RPD
+_last_ga_ts = 0
+_last_ga_hist_date = ""
 
 log = logging.getLogger("poller")
 POLL_SECONDS = 180  # 3 мин по ТЗ
@@ -105,6 +110,89 @@ def _ton_rate():
         return 0.0
 
 
+def _ga_match_slug(slug: str, fname: str, ga_map: dict):
+    cands = [ton.to_tonnel_name(fname)] + [c for c in ga.candidates(fname)]
+    for c in cands:
+        if c and ga.norm(c) in ga_map:
+            return ga.norm(c)
+    return None
+
+
+def do_giftasset_poll(force: bool = False):
+    """All-market floors every 6h (4 RPD) + history backfill for top-6 (6 RPD/day)."""
+    global _last_ga_ts, _last_ga_hist_date
+    if not force and time.time() - _last_ga_ts < GA_REFRESH_SECONDS:
+        return {"skipped": True}
+    if not os.environ.get("GIFTASSET_API_KEY"):
+        return {"error": "no GIFTASSET_API_KEY"}
+    try:
+        ga_map = asyncio.run(ga.fetch_price_list())
+        try:
+            names = asyncio.run(frag.fetch_collections())
+        except Exception:
+            names = {r["slug"]: r["name"] for r in db.distinct_slugs()}
+        prev = {r["slug"]: r for r in db.latest_snapshot()}
+        rows = []
+        for slug, fname in names.items():
+            g = ga_map.get(_ga_match_slug(slug, fname, ga_map) or "")
+            p = prev.get(slug, {})
+            rows.append({
+                "slug": slug, "name": fname,
+                "portals_floor": (g or {}).get("portals") or p.get("portals_floor"),
+                "tonnel_floor": (g or {}).get("tonnel") or p.get("tonnel_floor"),
+                "fragment_floor": p.get("fragment_floor"),
+                "mrkt_floor": (g or {}).get("mrkt"),
+                "getgems_floor": (g or {}).get("getgems"),
+                "thumb_remote": p.get("thumb_remote", ""),
+            })
+        # brand-new collections from GiftAsset (not on Fragment yet)
+        have = set(names)
+        for gnorm, g in ga_map.items():
+            if gnorm in [ga.norm(ton.to_tonnel_name(n) or "") for n in names.values()]:
+                continue
+            sims = [s for s in have]
+            slug = ga.slugify(g["display"])
+            if slug in have:
+                continue
+            have.add(slug)
+            rows.append({
+                "slug": slug, "name": g["display"],
+                "portals_floor": g.get("portals"), "tonnel_floor": g.get("tonnel"),
+                "fragment_floor": None, "mrkt_floor": g.get("mrkt"),
+                "getgems_floor": g.get("getgems"), "thumb_remote": "",
+            })
+        ts = db.save_snapshot(rows, _ton_rate())
+        _last_ga_ts = time.time()
+        log.warning(f"giftasset poll ok: {len(rows)} collections ts={ts}")
+        # daily history backfill for top-6 (quota: 6/day)
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        hist_n = 0
+        if today != _last_ga_hist_date:
+            priced = [r for r in rows if r["slug"] and (r["portals_floor"] or r["tonnel_floor"] or r["mrkt_floor"] or r["getgems_floor"])]
+            priced.sort(key=lambda r: -min([x for x in (r["portals_floor"], r["tonnel_floor"], r["mrkt_floor"], r["getgems_floor"]) if x] or [0]))
+            for r in priced[:6]:
+                try:
+                    h = asyncio.run(ga.fetch_history(r["name"]))
+                    pts = []
+                    for m, col in (("portals", "portals_floor"), ("tonnel", "tonnel_floor"), ("mrkt", "mrkt_floor"), ("getgems", "getgems_floor")):
+                        for tstamp, price in h.get(m, []):
+                            pts.append({"ts": tstamp, col: price})
+                    # merge per-ts
+                    byts: dict = {}
+                    for p in pts:
+                        byts.setdefault(p["ts"], {"ts": p["ts"]}).update({k: v for k, v in p.items() if k != "ts"})
+                    hist_n += db.insert_backfill(r["slug"], r["name"], list(byts.values()))
+                except Exception as e:
+                    log.warning(f"history fail {r['slug']}: {str(e)[:120]}")
+                time.sleep(8)  # не упираться в рейт-лимит GiftAsset
+            _last_ga_hist_date = today
+            log.warning(f"history backfill: {hist_n} points")
+        return {"ok": True, "count": len(rows), "history_points": hist_n}
+    except Exception as e:
+        log.warning(f"giftasset poll fail: {e}")
+        return {"error": str(e)[:300]}
+
+
 def do_fragment_poll(force: bool = False):
     """Full market refresh: Fragment floors + Tonnel floors + thumbs. Heavy — hourly."""
     global _last_fragment_ts
@@ -134,7 +222,7 @@ def do_fragment_poll(force: bool = False):
         prev = {r["slug"]: r for r in db.latest_snapshot()}
         for r in rows:
             p = prev.get(r["slug"], {})
-            for k in ("portals_floor", "tonnel_floor", "fragment_floor", "thumb_remote"):
+            for k in ("portals_floor", "tonnel_floor", "fragment_floor", "mrkt_floor", "getgems_floor", "thumb_remote"):
                 if not r.get(k) and p.get(k):
                     r[k] = p[k]
         ts = db.save_snapshot(rows, _ton_rate())
@@ -165,7 +253,7 @@ def do_poll():
             prev = {r["slug"]: r for r in db.latest_snapshot()}
             for r in rows:
                 p = prev.get(r["slug"], {})
-                for k in ("portals_floor", "tonnel_floor", "fragment_floor", "thumb_remote"):
+                for k in ("portals_floor", "tonnel_floor", "fragment_floor", "mrkt_floor", "getgems_floor", "thumb_remote"):
                     if not r.get(k) and p.get(k):
                         r[k] = p[k]
             ts = db.save_snapshot(rows, ton_rate)
@@ -181,6 +269,7 @@ try:
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(do_poll, "interval", seconds=POLL_SECONDS)
     scheduler.add_job(do_fragment_poll, "interval", seconds=FRAGMENT_REFRESH_SECONDS)
+    scheduler.add_job(do_giftasset_poll, "interval", seconds=GA_REFRESH_SECONDS)
     scheduler.start()
 except Exception as e:
     log.warning(f"scheduler disabled: {e}")
@@ -188,7 +277,7 @@ except Exception as e:
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "poll_seconds": POLL_SECONDS}
+    return {"ok": True, "poll_seconds": POLL_SECONDS, "giftasset_every": GA_REFRESH_SECONDS}
 
 
 @app.post("/api/poll")
@@ -202,6 +291,11 @@ def poll_fragment_now():
     return do_fragment_poll(force=True)
 
 
+@app.post("/api/poll-giftasset")
+def poll_giftasset_now():
+    return do_giftasset_poll(force=True)
+
+
 @app.get("/api/collections")
 def collections():
     """Latest snapshot: one row per gift (collection-level, no models)."""
@@ -209,20 +303,27 @@ def collections():
     img_map = _load_img_map()
     out = []
     for r in rows:
-        pf, tf, ff = r["portals_floor"], r["tonnel_floor"], r["fragment_floor"] if "fragment_floor" in r.keys() else None
+        keys = r.keys()
+        pf = r["portals_floor"]
+        tf = r["tonnel_floor"]
+        ff = r["fragment_floor"] if "fragment_floor" in keys else None
+        mf = r["mrkt_floor"] if "mrkt_floor" in keys else None
+        gf = r["getgems_floor"] if "getgems_floor" in keys else None
         spread = None
         if pf and tf:
             spread = round((pf - tf) / tf * 100, 2) if tf else None
-        floors = [x for x in (pf, tf, ff) if x]
+        floors = [x for x in (pf, tf, ff, mf, gf) if x]
         out.append({
             "slug": r["slug"],
             "name": r["name"],
             "portals_floor": pf,
             "tonnel_floor": tf,
             "fragment_floor": ff,
+            "mrkt_floor": mf,
+            "getgems_floor": gf,
             "min_floor": min(floors) if floors else None,
             "spread_pct": spread,
-            "thumb": thumbs.thumb_url(r["slug"], (r["thumb_remote"] or None) if "thumb_remote" in r.keys() else None),
+            "thumb": thumbs.thumb_url(r["slug"], (r["thumb_remote"] or None) if "thumb_remote" in keys else None),
             "ton_rate": r["ton_rate"],
             "ts": r["ts"],
         })
@@ -251,11 +352,11 @@ def arbitrage(min_net_pct: float = Query(2.0)):
     rows = db.latest_snapshot()
     out = []
     for r in rows:
-        px = {m: r[m] for m in ("fragment_floor", "tonnel_floor", "portals_floor")
+        px = {m: r[m] for m in ("fragment_floor", "tonnel_floor", "portals_floor", "mrkt_floor", "getgems_floor")
               if r.keys().__contains__(m) and r[m]}
         if len(px) < 2:
             continue
-        mk = {"fragment_floor": "fragment", "tonnel_floor": "tonnel", "portals_floor": "portals"}
+        mk = {"fragment_floor": "fragment", "tonnel_floor": "tonnel", "portals_floor": "portals", "mrkt_floor": "mrkt", "getgems_floor": "getgems"}
         for bk, buy in px.items():
             for sk, sell in px.items():
                 if sk == bk or sell <= buy:
@@ -333,14 +434,14 @@ def top(period: str = Query("24h")):
     res = []
     for s in slugs:
         pts = conn.execute(
-            "SELECT portals_floor, tonnel_floor, fragment_floor, ts FROM prices WHERE slug=? AND ts>=? ORDER BY ts ASC",
+            "SELECT portals_floor, tonnel_floor, fragment_floor, mrkt_floor, getgems_floor, ts FROM prices WHERE slug=? AND ts>=? ORDER BY ts ASC",
             (s, since),
         ).fetchall()
         if len(pts) < 2:
             continue
         # first market series that has data
         old, new = None, None
-        for col in range(3):
+        for col in range(5):
             vals = [r[col] for r in pts if r[col]]
             if len(vals) >= 2:
                 old, new = vals[0], vals[-1]

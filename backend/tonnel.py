@@ -26,10 +26,10 @@ def to_tonnel_name(fragment_plural: str, known: set | None = None) -> str | None
     cands = [p]
     if p.endswith("ies"):
         cands.append(p[:-3] + "y")
+    if p.endswith("s") and not p.endswith("ss"):
+        cands.append(p[:-1])
     if p.endswith("es"):
         cands.append(p[:-2])
-    if p.endswith("s"):
-        cands.append(p[:-1])
     if known is not None:
         kl = {k.lower(): k for k in known}
         # prefer case-preserving candidate that matches known (case-insensitive)
