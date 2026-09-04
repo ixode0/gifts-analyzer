@@ -276,6 +276,17 @@ def arbitrage(min_net_pct: float = Query(2.0)):
     return {"fees": FEES, "data": out[:100]}
 
 
+@app.get("/api/debug-tonnel")
+async def debug_tonnel(gift: str = Query("Plush Pepe")):
+    import time as _t
+    t0 = _t.time()
+    try:
+        floors = await ton.fetch_all_floors([gift])
+        return {"gift": gift, "floor": floors.get(gift), "dt": round(_t.time() - t0, 1)}
+    except Exception as e:
+        return {"gift": gift, "error": str(e)[:300], "dt": round(_t.time() - t0, 1)}
+
+
 @app.get("/api/history")
 def history(slug: str = Query(...), days: int = Query(7, ge=1, le=90)):
     rows = db.history(slug, days)
