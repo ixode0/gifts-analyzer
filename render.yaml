@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gifts-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    disk:
+      name: gifts-data
+      mountPath: /opt/render/project/src/backend
+      sizeGB: 1
