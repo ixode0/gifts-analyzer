@@ -170,7 +170,7 @@ def do_giftasset_poll(force: bool = False):
         if today != _last_ga_hist_date:
             priced = [r for r in rows if r["slug"] and (r["portals_floor"] or r["tonnel_floor"] or r["mrkt_floor"] or r["getgems_floor"])]
             priced.sort(key=lambda r: -min([x for x in (r["portals_floor"], r["tonnel_floor"], r["mrkt_floor"], r["getgems_floor"]) if x] or [0]))
-            for r in priced[:6]:
+            for r in priced[:4]:
                 try:
                     h = asyncio.run(ga.fetch_history(r["name"]))
                     pts = []
