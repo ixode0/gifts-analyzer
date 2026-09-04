@@ -14,6 +14,7 @@ import db
 import giftstat
 import fragment as frag
 import giftasset as ga
+import portals as por
 import tonnel as ton
 import thumbs
 
@@ -100,7 +101,7 @@ def detect_deals(samples: dict, slug_by_tname: dict, frag_floors: dict, min_gap:
     return deals[:100]
 
 
-FEES = {"fragment": 0.05, "tonnel": 0.04, "portals": 0.05, "mrkt": 0.02, "getgems": 0.02}
+FEES = {"fragment": 0.05, "tonnel": 0.04, "portals": 0.02, "mrkt": 0.02, "getgems": 0.02}
 
 
 def _ton_rate():
@@ -206,6 +207,12 @@ def do_fragment_poll(force: bool = False):
         tnames = sorted(set(m for m in mapping.values() if m))
         tfloors = asyncio.run(ton.fetch_all_floors(tnames)) if tnames else {}
         inv = {m: s for s, m in mapping.items()}
+        # portals floors direct (no auth, fresh)
+        try:
+            pfloors = asyncio.run(por.fetch_floors())
+        except Exception as e:
+            log.warning(f"portals floors fail: {e}")
+            pfloors = {}
         # thumbs: download missing only
         img_map = _load_img_map()
         for s, v in data.items():
@@ -213,11 +220,13 @@ def do_fragment_poll(force: bool = False):
                 img_map[s] = v["img"]
         _save_img_map(img_map)
         asyncio.run(thumbs.ensure_thumbs(img_map))
+        all_slugs = sorted(set(names) | set(pfloors))
         rows = [{
-            "slug": s, "name": names[s],
-            "portals_floor": None, "tonnel_floor": tfloors.get(mapping.get(s)),
-            "fragment_floor": data[s]["floor"], "thumb_remote": img_map.get(s, ""),
-        } for s in names]
+            "slug": s, "name": names.get(s, s),
+            "portals_floor": pfloors.get(s),
+            "tonnel_floor": tfloors.get(mapping.get(s)),
+            "fragment_floor": (data.get(s) or {}).get("floor"), "thumb_remote": img_map.get(s, ""),
+        } for s in all_slugs]
         # merge with latest snapshot so transient fetch misses don't wipe prices
         prev = {r["slug"]: r for r in db.latest_snapshot()}
         for r in rows:
